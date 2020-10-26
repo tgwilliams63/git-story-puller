@@ -3,8 +3,18 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"regexp"
+
+	"github.com/go-git/go-git/v5/plumbing/object"
+
+	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/storage/memory"
+
+	"github.com/go-git/go-git/v5/plumbing"
 
 	"github.com/google/go-github/v32/github"
 	mylog_debugger "github.com/tgwilliams63/mylog-debugger"
@@ -78,4 +88,35 @@ func main() {
 	}
 
 	ML.Print("V1 Stories: ", v1Stories)
+
+	fs := memfs.New()
+	storer := memory.NewStorage()
+	//baseRef := plumbing.NewReferenceFromStrings("base", fmt.Sprintf("refs/tags/%s", baseTag))
+	baseRef := plumbing.NewTagReferenceName(baseTag)
+	ML.Print(baseRef.String())
+
+	r, err := git.Clone(storer, fs, &git.CloneOptions{
+		URL:           fmt.Sprintf("https://github.com/%s/%s.git", repoOwner, repoName),
+		ReferenceName: baseRef,
+	})
+	ML.Check(err)
+
+	rh, err := r.Head()
+	ML.Check(err)
+
+	ri, err := r.Log(&git.LogOptions{From: rh.Hash()})
+	ML.Check(err)
+
+	err = ri.ForEach(func(c *object.Commit) error {
+		ML.Print(c.Hash)
+		return nil
+	})
+
+	//fileInfo, err := fs.Stat("./test.txt")
+	file, err := fs.Open("./test.txt")
+	ML.Check(err)
+	fileBytes, err := ioutil.ReadAll(file)
+	ML.Check(err)
+	ML.Print(string(fileBytes))
+
 }
